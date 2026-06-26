@@ -1,0 +1,35 @@
+services:
+  db:
+    image: postgres:18.4-alpine3.23
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-conduit}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-conduit}
+      POSTGRES_DB: ${POSTGRES_DB:-conduit}
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-conduit} -d ${POSTGRES_DB:-conduit}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  adminer:
+    image: adminer
+    ports:
+      - "8080:8080"
+    environment:
+      - ADMINER_DESIGN=pepa-linha-dark
+    depends_on:
+      - db
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
