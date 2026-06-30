@@ -72,3 +72,28 @@ impl IntoResponse for Error {
         (status, Json(json!({ "errors": { "body": [message] } }))).into_response()
     }
 }
+
+impl Error {
+    pub fn validation(
+        field: impl Into<Cow<'static, str>>,
+        message: impl Into<Cow<'static, str>>,
+    ) -> Self {
+        let mut errors = HashMap::new();
+
+        errors.insert(field.into(), vec![message.into()]);
+
+        Self::UnprocessableEntity { errors }
+    }
+    pub fn from_sqlx(e: sqlx::Error) -> Self {
+        match e {
+            sqlx::Error::Database(err) => match err.constraint() {
+                Some("users_email_key") => Self::validation("email", "has already been taken"),
+                Some("users_username_key") => {
+                    Self::validation("username", "has already been taken")
+                }
+                _ => Self::Sqlx(sqlx::Error::Database(err)),
+            },
+            e => Self::Sqlx(e),
+        }
+    }
+}

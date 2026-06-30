@@ -41,7 +41,9 @@ async fn main() -> Result<()> {
         db: pool,
         jwt_secret: config.jwt_secret.clone(),
     };
-    let app = Router::new().with_state(state);
+    let app = Router::new()
+        .nest("/api", conduit::users::router())
+        .with_state(state);
 
     let listener = tokio::net::TcpListener::bind(&config.host).await?;
     tracing::info!("listening on {}", config.host);
