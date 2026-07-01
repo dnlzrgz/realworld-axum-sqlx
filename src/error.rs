@@ -91,6 +91,7 @@ impl Error {
                 Some("users_username_key") => {
                     Self::validation("username", "has already been taken")
                 }
+                Some("user_cannot_follow_self") => Self::Forbidden,
                 _ => Self::Sqlx(sqlx::Error::Database(err)),
             },
             e => Self::Sqlx(e),

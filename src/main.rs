@@ -42,7 +42,10 @@ async fn main() -> Result<()> {
         jwt_secret: config.jwt_secret.clone(),
     };
     let app = Router::new()
-        .nest("/api", conduit::users::router())
+        .nest(
+            "/api",
+            conduit::users::router().merge(conduit::profiles::router()),
+        )
         .with_state(state);
 
     let listener = tokio::net::TcpListener::bind(&config.host).await?;
