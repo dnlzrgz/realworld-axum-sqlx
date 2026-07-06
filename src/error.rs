@@ -92,6 +92,7 @@ impl Error {
                     Self::validation("username", "has already been taken")
                 }
                 Some("user_cannot_follow_self") => Self::Forbidden,
+                Some("article_slug_key") => Self::validation("slug", "duplicate article slug"),
                 _ => Self::Sqlx(sqlx::Error::Database(err)),
             },
             e => Self::Sqlx(e),

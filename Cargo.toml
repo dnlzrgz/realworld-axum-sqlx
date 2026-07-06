@@ -9,7 +9,7 @@ authors = ["dnlzrgz <contact@dnlzrgz.com>"]
 anyhow = "1.0.102"
 argon2 = { version = "0.5.3", features = ["std"] }
 axum = "0.8.9"
-chrono = "0.4.45"
+chrono = { version = "0.4.45", features = ["serde"] }
 clap = { version = "4.6.1", features = ["derive", "env"] }
 dotenvy = "0.15.7"
 serde = { version = "1.0.228", features = ["derive"] }
