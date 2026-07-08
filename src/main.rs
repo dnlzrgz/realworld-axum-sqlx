@@ -45,7 +45,9 @@ async fn main() -> Result<()> {
         .nest(
             "/api",
             conduit::users::router()
-                .merge(conduit::profiles::router().merge(conduit::articles::router())),
+                .merge(conduit::profiles::router())
+                .merge(conduit::articles::router())
+                .merge(conduit::comments::router()),
         )
         .with_state(state);
 
