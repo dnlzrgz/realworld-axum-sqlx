@@ -1,14 +1,12 @@
 use axum::{
     Json,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::StatusCode,
 };
+use futures::TryStreamExt;
 
 use crate::{
-    articles::{
-        dto::{ArticleBody, ArticleFromQuery, CreateArticle, TagsBody, UpdateArticle},
-        utils::slugify,
-    },
+    articles::{dto::*, utils::slugify},
     error::Error,
     extractor::{AuthUser, MaybeAuthUser},
     state::AppState,
@@ -330,4 +328,136 @@ pub async fn get_tags(State(state): State<AppState>) -> Result<Json<TagsBody>, E
     .await?;
 
     Ok(Json(TagsBody { tags }))
+}
+
+pub async fn list_articles(
+    maybe_auth_user: MaybeAuthUser,
+    State(state): State<AppState>,
+    query: Query<ListArticlesQuery>,
+) -> Result<Json<MultipleArticlesBody>, Error> {
+    let articles: Vec<_> = sqlx::query_as!(
+        ArticleFromQuery,
+        r#"
+        select
+                slug,
+                title,
+                description,
+                body,
+                tag_list,
+                articles.created_at,
+                articles.updated_at,
+
+                exists (
+                    select 1
+                    from favorites f
+                    where f.article_id = articles.article_id
+                    and f.user_id = $1
+                ) as "favorited!",
+
+                (
+                    select count(*)
+                    from favorites f
+                    where f.article_id = articles.article_id
+                ) as "favorites_count!",
+
+                author.username as author_username,
+                author.bio as author_bio,
+                author.image as author_image,
+
+                exists (
+                    select 1
+                    from follow f
+                    where f.following_user_id = author.user_id
+                    and f.follower_user_id = $1
+                ) as "following_author!"
+
+            from articles
+            inner join users author using (user_id)
+
+            where
+                ($2::text is null or tag_list @> array[$2])
+                and ($3::text is null or author.username = $3)
+                and (
+                    $4::text is null
+                    or exists (
+                        select 1
+                        from users u
+                        inner join favorites f on f.user_id = u.user_id
+                        where u.username = $4
+                        and f.article_id = articles.article_id
+                    )
+                )
+
+            order by articles.created_at desc
+            limit $5
+            offset $6
+        "#,
+        maybe_auth_user.user_id(),
+        query.tag,
+        query.author,
+        query.favorited,
+        query.limit.unwrap_or(20),
+        query.offset.unwrap_or(0)
+    )
+    .fetch(&state.db)
+    .map_ok(ArticleFromQuery::into_article)
+    .try_collect()
+    .await?;
+
+    Ok(Json(MultipleArticlesBody {
+        articles_count: articles.len(),
+        articles,
+    }))
+}
+
+pub async fn feed_articles(
+    maybe_auth_user: MaybeAuthUser,
+    State(state): State<AppState>,
+    query: Query<FeedArticlesQuery>,
+) -> Result<Json<MultipleArticlesBody>, Error> {
+    let articles: Vec<_> = sqlx::query_as!(
+        ArticleFromQuery,
+        r#"
+            select
+                article.slug,
+                article.title,
+                article.description,
+                article.body,
+                article.tag_list,
+                article.created_at,
+                article.updated_at,
+                true as "favorited!",
+                (
+                    select count(*)
+                    from favorites fav
+                    where fav.article_id = article.article_id
+                ) as "favorites_count!",
+
+                author.username as author_username,
+                author.bio as author_bio,
+                author.image as author_image,
+                true as "following_author!"
+            from follow
+            inner join articles article
+                on article.user_id = follow.following_user_id
+            inner join users author
+                on author.user_id = article.user_id
+            where follow.follower_user_id = $1
+            order by article.created_at desc
+            limit $2
+            offset $3
+        "#,
+        maybe_auth_user.user_id(),
+        query.limit.unwrap_or(20),
+        query.offset.unwrap_or(0)
+    )
+    .fetch(&state.db)
+    .map_ok(ArticleFromQuery::into_article)
+    .try_collect()
+    .await?;
+
+    Ok(Json(MultipleArticlesBody {
+        articles_count: articles.len(),
+        articles,
+    }))
 }

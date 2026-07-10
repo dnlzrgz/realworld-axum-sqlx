@@ -82,3 +82,27 @@ impl ArticleFromQuery {
         }
     }
 }
+
+#[derive(Deserialize, Default)]
+#[serde(default)]
+pub struct ListArticlesQuery {
+    pub tag: Option<String>,
+    pub author: Option<String>,
+    pub favorited: Option<String>,
+    pub limit: Option<i64>,
+    pub offset: Option<i64>,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(default)]
+pub struct FeedArticlesQuery {
+    pub limit: Option<i64>,
+    pub offset: Option<i64>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MultipleArticlesBody {
+    pub articles: Vec<Article>,
+    pub articles_count: usize,
+}
